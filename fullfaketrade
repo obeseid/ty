@@ -484,6 +484,124 @@ local function startTrade()
             print("   • Click on any item in the trade to remove it")
             print("   • Click Accept when ready")
             print("   • Trade will auto-progress")
+            
+            -- Store original methods
+            local originalAccept = tradeApp._on_accept_pressed
+            local originalConfirm = tradeApp._on_confirm_pressed
+            local originalRemove = tradeApp._remove_item_from_my_offer
+            
+            -- Override accept to auto-progress
+            tradeApp._on_accept_pressed = function(self)
+                print("✅✅✅ User clicked Accept!")
+                local state = tradeApp:_get_local_trade_state()
+                
+                if state then
+                    -- Mark recipient (you) as negotiated
+                    tradeApp:_change_local_trade_state({
+                        recipient_offer = {
+                            items = state.recipient_offer.items,
+                            negotiated = true,
+                            confirmed = false,
+                            player_name = LocalPlayer.Name
+                        }
+                    })
+                    tradeApp:refresh_all()
+                    
+                    print("✅ You accepted! Auto-accepting partner in 2 seconds...")
+                    wait(2)
+                    
+                    -- Auto-accept for sender (partner)
+                    tradeApp:_change_local_trade_state({
+                        sender_offer = {
+                            items = state.sender_offer.items,
+                            negotiated = true,
+                            confirmed = false,
+                            player_name = targetPlayer.Name
+                        },
+                        current_stage = "confirmation",
+                        offer_version = state.offer_version + 1,
+                        subscriber_count = spectatorCount
+                    })
+                    tradeApp:refresh_all()
+                    
+                    print("✅ BOTH ACCEPTED! Now in confirmation stage.")
+                    
+                    -- Override confirm for auto-finish
+                    tradeApp._on_confirm_pressed = function(self)
+                        print("✅✅✅ User clicked Confirm!")
+                        local confirmState = tradeApp:_get_local_trade_state()
+                        
+                        if confirmState then
+                            -- Mark recipient as confirmed
+                            tradeApp:_change_local_trade_state({
+                                recipient_offer = {
+                                    items = confirmState.recipient_offer.items,
+                                    negotiated = true,
+                                    confirmed = true,
+                                    player_name = LocalPlayer.Name
+                                }
+                            })
+                            tradeApp:refresh_all()
+                            
+                            print("✅ You confirmed! Auto-confirming partner in 2 seconds...")
+                            wait(2)
+                            
+                            -- Auto-confirm sender
+                            tradeApp:_change_local_trade_state({
+                                sender_offer = {
+                                    items = confirmState.sender_offer.items,
+                                    negotiated = true,
+                                    confirmed = true,
+                                    player_name = targetPlayer.Name
+                                },
+                                subscriber_count = spectatorCount
+                            })
+                            tradeApp:refresh_all()
+                            
+                            print("✅ BOTH CONFIRMED! Finishing trade...")
+                            wait(2)
+                            
+                            -- Clean up and close
+                            pcall(function()
+                                if tradeApp.frame and tradeApp.frame.Parent then
+                                    tradeApp.frame:Destroy()
+                                    print("🗑️🗑️🗑️ Trade UI destroyed!")
+                                end
+                                tradeApp:hide()
+                                tradeApp:_overwrite_local_trade_state(nil)
+                                
+                                -- Restore original methods
+                                tradeApp._on_accept_pressed = originalAccept
+                                tradeApp._on_confirm_pressed = originalConfirm
+                                tradeApp._remove_item_from_my_offer = originalRemove
+                            end)
+                            
+                            local hintApp = fsys.load("UIManager").apps.HintApp
+                            hintApp:hint({
+                                text = "The trade was successful!",
+                                length = 3,
+                                overridable = true
+                            })
+                            
+                            print("✅✅✅ Trade finished!")
+                        end
+                    end
+                end
+            end
+            
+            -- Timeout to restore methods after 60 seconds
+            delay(60, function()
+                if tradeApp._on_accept_pressed ~= originalAccept then
+                    tradeApp._on_accept_pressed = originalAccept
+                    print("⏰⏰⏰ Trade timeout - methods restored")
+                end
+                if tradeApp._on_confirm_pressed ~= originalConfirm then
+                    tradeApp._on_confirm_pressed = originalConfirm
+                end
+                if tradeApp._remove_item_from_my_offer ~= originalRemove then
+                    tradeApp._remove_item_from_my_offer = originalRemove
+                end
+            end)
         else
             print("❌ TradeApp not found")
         end
