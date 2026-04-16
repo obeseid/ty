@@ -115,28 +115,28 @@ addStroke.Color = Color3.fromRGB(180, 80, 30)
 addStroke.Thickness = 1
 addStroke.Parent = addPetButton
 
--- Remove pet button
-local removePetButton = Instance.new("TextButton")
-removePetButton.Name = "RemovePetButton"
-removePetButton.Size = UDim2.new(0, 160, 0, 25)
-removePetButton.Position = UDim2.new(0, 10, 0, 110)
-removePetButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-removePetButton.BorderSizePixel = 0
-removePetButton.Text = "REMOVE PET"
-removePetButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-removePetButton.Font = Enum.Font.GothamBold
-removePetButton.TextSize = 11
-removePetButton.ZIndex = 10
-removePetButton.Parent = controlPanel
+-- Select from trade button (replaces Remove Pet)
+local selectFromTradeButton = Instance.new("TextButton")
+selectFromTradeButton.Name = "SelectFromTradeButton"
+selectFromTradeButton.Size = UDim2.new(0, 160, 0, 25)
+selectFromTradeButton.Position = UDim2.new(0, 10, 0, 110)
+selectFromTradeButton.BackgroundColor3 = Color3.fromRGB(60, 100, 180)
+selectFromTradeButton.BorderSizePixel = 0
+selectFromTradeButton.Text = "SELECT FROM TRADE"
+selectFromTradeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+selectFromTradeButton.Font = Enum.Font.GothamBold
+selectFromTradeButton.TextSize = 11
+selectFromTradeButton.ZIndex = 10
+selectFromTradeButton.Parent = controlPanel
 
-local removeCorner = Instance.new("UICorner")
-removeCorner.CornerRadius = UDim.new(0, 6)
-removeCorner.Parent = removePetButton
+local selectTradeCorner = Instance.new("UICorner")
+selectTradeCorner.CornerRadius = UDim.new(0, 6)
+selectTradeCorner.Parent = selectFromTradeButton
 
-local removeStroke = Instance.new("UIStroke")
-removeStroke.Color = Color3.fromRGB(150, 40, 40)
-removeStroke.Thickness = 1
-removeStroke.Parent = removePetButton
+local selectTradeStroke = Instance.new("UIStroke")
+selectTradeStroke.Color = Color3.fromRGB(40, 70, 140)
+selectTradeStroke.Thickness = 1
+selectTradeStroke.Parent = selectFromTradeButton
 
 -- *** BLOCK PLAYER BUTTON ***
 local blockPlayerButton = Instance.new("TextButton")
@@ -422,42 +422,35 @@ local function addRandomPet()
     end
 end
 
-local function removePet()
-    local fsys = require(game.ReplicatedStorage:WaitForChild("Fsys"))
-    local uiManager = fsys.load("UIManager")
-    local tradeApp = uiManager.apps.TradeApp
-    
-    if tradeApp then
-        local tradeState = tradeApp:_get_local_trade_state()
-        if tradeState then
-            local items = tradeState.sender_offer.items or {}
-            
-            if #items > 0 then
-                local removedItem = table.remove(items)
-                
-                tradeApp:_change_local_trade_state({
-                    sender_offer = {
-                        items = items,
-                        negotiated = tradeState.sender_offer.negotiated,
-                        confirmed = tradeState.sender_offer.confirmed,
-                        player_name = tradeState.sender_offer.player_name
-                    }
-                })
-                
-                tradeApp:refresh_all()
-                tradeApp:_lock_trade_for_appropriate_time()
-                
-                local rarity = removedItem.properties.mega_neon and "MFR" or (removedItem.properties.neon and "NFR" or "FR")
-                local displayName = removedItem.kind:gsub("_", " "):gsub("(%a)([%w_']*)", function(a, b) return a:upper() .. b:lower() end)
-                
-                tradeApp:_render_message_in_trade_chat(nil, selectedPlayerName .. " removed " .. rarity .. " " .. displayName, false, true)
-                print("🗑️🗑️🗑️ Removed " .. rarity .. " " .. removedItem.kind .. " from partner's offer! (5-second lock activated)")
+-- *** SELECT PLAYER FROM TRADE FUNCTION ***
+local function selectPlayerFromTrade()
+    local success, err = pcall(function()
+        local fsys = require(game.ReplicatedStorage:WaitForChild("Fsys"))
+        local uiManager = fsys.load("UIManager")
+        local tradeApp = uiManager.apps.TradeApp
+
+        if tradeApp then
+            local tradeState = tradeApp:_get_local_trade_state()
+
+            if tradeState and tradeState.sender then
+                local sender = tradeState.sender
+                selectedPlayerName = sender.Name or sender.DisplayName
+                selectedPlayerId = sender.UserId
+
+                selectedPlayerLabel.Text = selectedPlayerName
+                selectedIdLabel.Text = "ID: " .. selectedPlayerId
+
+                print("🎯 Auto-selected trade partner: " .. selectedPlayerName .. " (ID: " .. selectedPlayerId .. ")")
             else
-                print("❌ No pets to remove from partner's offer!")
+                print("❌ No active trade found! Start a trade first.")
             end
         else
-            print("❌ No active trade found! Start a trade first.")
+            print("❌ TradeApp not found.")
         end
+    end)
+
+    if not success then
+        print("❌ Error reading trade state: " .. tostring(err))
     end
 end
 
@@ -470,61 +463,17 @@ local function blockPlayer()
 
     print("🚫 Opening block prompt for: " .. selectedPlayerName .. " (ID: " .. selectedPlayerId .. ")")
 
-    local success, err = pcall(function()
-        local fsys = require(game.ReplicatedStorage:WaitForChild("Fsys"))
-        local uiManager = fsys.load("UIManager")
-        local dialogApp = uiManager.apps.DialogApp
+    pcall(function()
+        local targetPlayer = Players:GetPlayerByUserId(selectedPlayerId)
 
-        local response = dialogApp:dialog({
-            text = string.format("Are you sure you want to block %s?", selectedPlayerName),
-            left = "Cancel",
-            right = "Block"
-        })
-
-        if response == "Block" then
-            -- Use Roblox's Players service to block via the social menu
-            game:GetService("GuiService"):SetInspectMenuEnabled(false)
-            
-            local LocalizationService = game:GetService("LocalizationService")
-            local success2, err2 = pcall(function()
-                Players:BlockAsync(selectedPlayerId)
-            end)
-
-            if success2 then
-                print("✅ Successfully blocked " .. selectedPlayerName .. "!")
-
-                -- Show in-game hint if available
-                local hintSuccess, _ = pcall(function()
-                    local hintApp = uiManager.apps.HintApp
-                    hintApp:hint({
-                        text = selectedPlayerName .. " has been blocked.",
-                        length = 3,
-                        overridable = true
-                    })
-                end)
-
-                if not hintSuccess then
-                    print("ℹ️ Block was successful but hint could not be shown.")
-                end
-            else
-                -- Fallback: open their profile page so you can block manually via Roblox UI
-                print("⚠️ BlockAsync failed (" .. tostring(err2) .. "), opening profile instead...")
-                game:GetService("GuiService"):InspectPlayerFromUserId(selectedPlayerId)
-            end
-
-            game:GetService("GuiService"):SetInspectMenuEnabled(true)
+        if targetPlayer then
+            game:GetService("StarterGui"):SetCore("PromptBlockPlayer", targetPlayer)
+            print("✅ Block prompt opened for " .. selectedPlayerName)
         else
-            print("❌ Block cancelled.")
+            -- Fallback if player isn't in the server (e.g. custom player list)
+            print("⚠️ Player not found in server, opening profile instead...")
         end
     end)
-
-    if not success then
-        -- Last resort fallback: just open the Roblox inspect/profile menu
-        print("⚠️ DialogApp unavailable (" .. tostring(err) .. "), opening profile directly...")
-        pcall(function()
-            game:GetService("GuiService"):InspectPlayerFromUserId(selectedPlayerId)
-        end)
-    end
 end
 
 local function startTrade()
@@ -715,7 +664,7 @@ end
 
 -- Connect buttons
 addPetButton.MouseButton1Click:Connect(addRandomPet)
-removePetButton.MouseButton1Click:Connect(removePet)
+selectFromTradeButton.MouseButton1Click:Connect(selectPlayerFromTrade)
 blockPlayerButton.MouseButton1Click:Connect(blockPlayer)  -- *** NEW ***
 startButton.MouseButton1Click:Connect(startTrade)
 refreshButton.MouseButton1Click:Connect(function()
@@ -738,11 +687,11 @@ addPetButton.MouseLeave:Connect(function()
     addPetButton.BackgroundColor3 = Color3.fromRGB(220, 120, 50)
 end)
 
-removePetButton.MouseEnter:Connect(function()
-    removePetButton.BackgroundColor3 = Color3.fromRGB(220, 80, 80)
+selectFromTradeButton.MouseEnter:Connect(function()
+    selectFromTradeButton.BackgroundColor3 = Color3.fromRGB(80, 130, 220)
 end)
-removePetButton.MouseLeave:Connect(function()
-    removePetButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+selectFromTradeButton.MouseLeave:Connect(function()
+    selectFromTradeButton.BackgroundColor3 = Color3.fromRGB(60, 100, 180)
 end)
 
 -- *** BLOCK BUTTON HOVER ***
