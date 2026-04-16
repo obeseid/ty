@@ -1,4 +1,4 @@
--- Adopt Me Trade Request UI Script
+-- updat
 -- Rebuilt from deobfuscated bytecode
 
 local Players = game:GetService("Players")
@@ -12,7 +12,7 @@ screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 -- Create control panel frame
 local controlPanel = Instance.new("Frame")
 controlPanel.Name = "TradeControlPanel"
-controlPanel.Size = UDim2.new(0, 180, 0, 320)
+controlPanel.Size = UDim2.new(0, 180, 0, 370)  -- increased height for new button
 controlPanel.Position = UDim2.new(0, 10, 0, 100)
 controlPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 controlPanel.BackgroundTransparency = 0.1
@@ -138,11 +138,34 @@ removeStroke.Color = Color3.fromRGB(150, 40, 40)
 removeStroke.Thickness = 1
 removeStroke.Parent = removePetButton
 
--- Player selection section
+-- *** BLOCK PLAYER BUTTON ***
+local blockPlayerButton = Instance.new("TextButton")
+blockPlayerButton.Name = "BlockPlayerButton"
+blockPlayerButton.Size = UDim2.new(0, 160, 0, 25)
+blockPlayerButton.Position = UDim2.new(0, 10, 0, 140)
+blockPlayerButton.BackgroundColor3 = Color3.fromRGB(90, 30, 120)
+blockPlayerButton.BorderSizePixel = 0
+blockPlayerButton.Text = "🚫 BLOCK PLAYER"
+blockPlayerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+blockPlayerButton.Font = Enum.Font.GothamBold
+blockPlayerButton.TextSize = 11
+blockPlayerButton.ZIndex = 10
+blockPlayerButton.Parent = controlPanel
+
+local blockCorner = Instance.new("UICorner")
+blockCorner.CornerRadius = UDim.new(0, 6)
+blockCorner.Parent = blockPlayerButton
+
+local blockStroke = Instance.new("UIStroke")
+blockStroke.Color = Color3.fromRGB(60, 10, 90)
+blockStroke.Thickness = 1
+blockStroke.Parent = blockPlayerButton
+
+-- Player selection section (shifted down by 35 to make room)
 local playerSection = Instance.new("Frame")
 playerSection.Name = "PlayerSelectionSection"
 playerSection.Size = UDim2.new(0, 160, 0, 150)
-playerSection.Position = UDim2.new(0, 10, 0, 140)
+playerSection.Position = UDim2.new(0, 10, 0, 175)  -- was 140, shifted down
 playerSection.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
 playerSection.BorderSizePixel = 0
 playerSection.ZIndex = 10
@@ -208,11 +231,11 @@ local listLayout = Instance.new("UIListLayout")
 listLayout.Padding = UDim.new(0, 2)
 listLayout.Parent = playerList
 
--- Selected player labels
+-- Selected player labels (shifted down by 35)
 local selectedPlayerLabel = Instance.new("TextLabel")
 selectedPlayerLabel.Name = "SelectedPlayerLabel"
 selectedPlayerLabel.Size = UDim2.new(0, 160, 0, 15)
-selectedPlayerLabel.Position = UDim2.new(0, 10, 0, 295)
+selectedPlayerLabel.Position = UDim2.new(0, 10, 0, 330)  -- was 295
 selectedPlayerLabel.BackgroundTransparency = 1
 selectedPlayerLabel.Text = "AdoptMe_Fan"
 selectedPlayerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -224,7 +247,7 @@ selectedPlayerLabel.Parent = controlPanel
 local selectedIdLabel = Instance.new("TextLabel")
 selectedIdLabel.Name = "SelectedPlayerIdLabel"
 selectedIdLabel.Size = UDim2.new(0, 160, 0, 12)
-selectedIdLabel.Position = UDim2.new(0, 10, 0, 310)
+selectedIdLabel.Position = UDim2.new(0, 10, 0, 345)  -- was 310
 selectedIdLabel.BackgroundTransparency = 1
 selectedIdLabel.Text = "ID: 123456"
 selectedIdLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -281,7 +304,6 @@ local function populatePlayerList()
         end
     end
     
-    -- Add real players
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             local btn = Instance.new("TextButton")
@@ -311,7 +333,6 @@ local function populatePlayerList()
         end
     end
     
-    -- Add custom players
     local customPlayers = {
         {Name = "bubblesxwrldd", UserId = 5609475294},
         {Name = "agusmareborn", UserId = 8951710060},
@@ -440,6 +461,72 @@ local function removePet()
     end
 end
 
+-- *** BLOCK PLAYER FUNCTION ***
+local function blockPlayer()
+    if selectedPlayerId == 123456 then
+        print("❌ No player selected! Click a player from the list first.")
+        return
+    end
+
+    print("🚫 Opening block prompt for: " .. selectedPlayerName .. " (ID: " .. selectedPlayerId .. ")")
+
+    local success, err = pcall(function()
+        local fsys = require(game.ReplicatedStorage:WaitForChild("Fsys"))
+        local uiManager = fsys.load("UIManager")
+        local dialogApp = uiManager.apps.DialogApp
+
+        local response = dialogApp:dialog({
+            text = string.format("Are you sure you want to block %s?", selectedPlayerName),
+            left = "Cancel",
+            right = "Block"
+        })
+
+        if response == "Block" then
+            -- Use Roblox's Players service to block via the social menu
+            game:GetService("GuiService"):SetInspectMenuEnabled(false)
+            
+            local LocalizationService = game:GetService("LocalizationService")
+            local success2, err2 = pcall(function()
+                Players:BlockAsync(selectedPlayerId)
+            end)
+
+            if success2 then
+                print("✅ Successfully blocked " .. selectedPlayerName .. "!")
+
+                -- Show in-game hint if available
+                local hintSuccess, _ = pcall(function()
+                    local hintApp = uiManager.apps.HintApp
+                    hintApp:hint({
+                        text = selectedPlayerName .. " has been blocked.",
+                        length = 3,
+                        overridable = true
+                    })
+                end)
+
+                if not hintSuccess then
+                    print("ℹ️ Block was successful but hint could not be shown.")
+                end
+            else
+                -- Fallback: open their profile page so you can block manually via Roblox UI
+                print("⚠️ BlockAsync failed (" .. tostring(err2) .. "), opening profile instead...")
+                game:GetService("GuiService"):InspectPlayerFromUserId(selectedPlayerId)
+            end
+
+            game:GetService("GuiService"):SetInspectMenuEnabled(true)
+        else
+            print("❌ Block cancelled.")
+        end
+    end)
+
+    if not success then
+        -- Last resort fallback: just open the Roblox inspect/profile menu
+        print("⚠️ DialogApp unavailable (" .. tostring(err) .. "), opening profile directly...")
+        pcall(function()
+            game:GetService("GuiService"):InspectPlayerFromUserId(selectedPlayerId)
+        end)
+    end
+end
+
 local function startTrade()
     local fsys = require(game.ReplicatedStorage:WaitForChild("Fsys"))
     local uiManager = fsys.load("UIManager")
@@ -504,18 +591,15 @@ local function startTrade()
             print("   • Click Accept when ready")
             print("   • Trade will auto-progress")
             
-            -- Store original methods
             local originalAccept = tradeApp._on_accept_pressed
             local originalConfirm = tradeApp._on_confirm_pressed
             local originalRemove = tradeApp._remove_item_from_my_offer
             
-            -- Override accept to auto-progress
             tradeApp._on_accept_pressed = function(self)
                 print("✅✅✅ User clicked Accept!")
                 local state = tradeApp:_get_local_trade_state()
                 
                 if state then
-                    -- Mark recipient (you) as negotiated
                     tradeApp:_change_local_trade_state({
                         recipient_offer = {
                             items = state.recipient_offer.items,
@@ -526,10 +610,9 @@ local function startTrade()
                     })
                     tradeApp:refresh_all()
                     
-                    print("✅ You accepted! Auto-accepting partner in 2 seconds...")
-                    wait(2)
+                    print("✅ You accepted! Auto-accepting partner in 1 seconds...")
+                    wait(1)
                     
-                    -- Auto-accept for sender (partner)
                     tradeApp:_change_local_trade_state({
                         sender_offer = {
                             items = state.sender_offer.items,
@@ -545,13 +628,11 @@ local function startTrade()
                     
                     print("✅ BOTH ACCEPTED! Now in confirmation stage.")
                     
-                    -- Override confirm for auto-finish
                     tradeApp._on_confirm_pressed = function(self)
                         print("✅✅✅ User clicked Confirm!")
                         local confirmState = tradeApp:_get_local_trade_state()
                         
                         if confirmState then
-                            -- Mark recipient as confirmed
                             tradeApp:_change_local_trade_state({
                                 recipient_offer = {
                                     items = confirmState.recipient_offer.items,
@@ -562,10 +643,9 @@ local function startTrade()
                             })
                             tradeApp:refresh_all()
                             
-                            print("✅ You confirmed! Auto-confirming partner in 2 seconds...")
-                            wait(2)
+                            print("✅ You confirmed! Auto-confirming partner in 1 seconds...")
+                            wait(1)
                             
-                            -- Auto-confirm sender
                             tradeApp:_change_local_trade_state({
                                 sender_offer = {
                                     items = confirmState.sender_offer.items,
@@ -580,7 +660,6 @@ local function startTrade()
                             print("✅ BOTH CONFIRMED! Finishing trade...")
                             wait(2)
                             
-                            -- Clean up and close
                             pcall(function()
                                 if tradeApp.frame and tradeApp.frame.Parent then
                                     tradeApp.frame:Destroy()
@@ -589,7 +668,6 @@ local function startTrade()
                                 tradeApp:hide()
                                 tradeApp:_overwrite_local_trade_state(nil)
                                 
-                                -- Restore original methods
                                 tradeApp._on_accept_pressed = originalAccept
                                 tradeApp._on_confirm_pressed = originalConfirm
                                 tradeApp._remove_item_from_my_offer = originalRemove
@@ -608,8 +686,7 @@ local function startTrade()
                 end
             end
             
-            -- Timeout to restore methods after 5 minutes
-            delay(300, function()
+            delay(10800, function()
                 if tradeApp._on_accept_pressed ~= originalAccept then
                     tradeApp._on_accept_pressed = originalAccept
                     print("⏰⏰⏰ Trade timeout - methods restored")
@@ -636,9 +713,10 @@ for i = 1, 5 do
     end)
 end
 
--- Connect other buttons
+-- Connect buttons
 addPetButton.MouseButton1Click:Connect(addRandomPet)
 removePetButton.MouseButton1Click:Connect(removePet)
+blockPlayerButton.MouseButton1Click:Connect(blockPlayer)  -- *** NEW ***
 startButton.MouseButton1Click:Connect(startTrade)
 refreshButton.MouseButton1Click:Connect(function()
     print("🔄 Refreshing player list...")
@@ -649,7 +727,6 @@ end)
 startButton.MouseEnter:Connect(function()
     startButton.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
 end)
-
 startButton.MouseLeave:Connect(function()
     startButton.BackgroundColor3 = Color3.fromRGB(85, 170, 85)
 end)
@@ -657,7 +734,6 @@ end)
 addPetButton.MouseEnter:Connect(function()
     addPetButton.BackgroundColor3 = Color3.fromRGB(240, 140, 70)
 end)
-
 addPetButton.MouseLeave:Connect(function()
     addPetButton.BackgroundColor3 = Color3.fromRGB(220, 120, 50)
 end)
@@ -665,15 +741,21 @@ end)
 removePetButton.MouseEnter:Connect(function()
     removePetButton.BackgroundColor3 = Color3.fromRGB(220, 80, 80)
 end)
-
 removePetButton.MouseLeave:Connect(function()
     removePetButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+end)
+
+-- *** BLOCK BUTTON HOVER ***
+blockPlayerButton.MouseEnter:Connect(function()
+    blockPlayerButton.BackgroundColor3 = Color3.fromRGB(120, 50, 160)
+end)
+blockPlayerButton.MouseLeave:Connect(function()
+    blockPlayerButton.BackgroundColor3 = Color3.fromRGB(90, 30, 120)
 end)
 
 refreshButton.MouseEnter:Connect(function()
     refreshButton.BackgroundColor3 = Color3.fromRGB(90, 160, 210)
 end)
-
 refreshButton.MouseLeave:Connect(function()
     refreshButton.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
 end)
@@ -682,12 +764,10 @@ end)
 updateSpectatorCount(5)
 populatePlayerList()
 
--- Print instructions
 print("🎮 COMPACT Trade UI created!")
 print("🔢🔢🔢 Click numbers 1-5 to choose spectators")
 print("👤👤👤 Click any player name in the list to select trade partner")
 print("🎁🎁🎁 Click ADD PET to add pets to partner (5-second lock)")
 print("🗑️🗑️🗑️ Click REMOVE PET to remove pets from partner (5-second lock)")
-print("🗑️🗑️🗑️ Click on any item in the trade to remove it")
+print("🚫🚫🚫 Click BLOCK PLAYER to block the selected player")
 print("▶️▶️▶️ Click START TRADE to begin")
-print("👤👤👤 Click the username in trade to open their Adopt Me profile!")
