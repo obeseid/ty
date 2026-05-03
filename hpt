@@ -1,0 +1,46 @@
+-- AutoJoinMinigame LocalScript
+-- Watches MinigameJoinPrompt visibility and auto-clicks YesButton
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui")
+local Messages = require(game.ReplicatedStorage.Shared.Modules.Messages)
+
+-- Wait for the GUI hierarchy to load
+local TopGui = PlayerGui:WaitForChild("TopGui")
+local MinigameJoinPrompt = TopGui:WaitForChild("MinigameJoinPrompt")
+local YesButton = MinigameJoinPrompt:WaitForChild("Buttons"):WaitForChild("YesButton")
+
+local function onPromptVisible()
+	print("[AutoJoin] MinigameJoinPrompt became visible — clicking YesButton...")
+
+	local button = YesButton
+
+	-- Fire MouseButton1Down
+	firesignal(button.MouseButton1Down)
+	task.wait(0.05)
+
+	-- Fire MouseButton1Up
+	firesignal(button.MouseButton1Up)
+	task.wait(0.05)
+
+	-- Fire Activated
+	firesignal(button.Activated)
+
+	print("[AutoJoin] Button fired. Waiting 20 seconds...")
+	task.wait(20)
+
+	-- Your function goes here
+  Messages.FireServer("ReportLapTime", 10)
+  Messages.FireServer("ReportLapTime", 20)
+  Messages.FireServer("ReportWin", 30)
+end
+
+-- Listen for visibility changes
+MinigameJoinPrompt:GetPropertyChangedSignal("Visible"):Connect(function()
+	if MinigameJoinPrompt.Visible then
+		task.spawn(onPromptVisible) -- spawn so it doesn't block the signal
+	end
+end)
+
+print("[AutoJoin] Script loaded. Watching MinigameJoinPrompt...")
