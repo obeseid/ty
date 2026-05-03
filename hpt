@@ -28,7 +28,7 @@ local function onPromptVisible()
 	firesignal(button.Activated)
 
 	print("[AutoJoin] Button fired. Waiting 20 seconds...")
-	task.wait(20)
+	task.wait(30)
 
 	-- Your function goes here
   Messages.FireServer("ReportLapTime", 10)
