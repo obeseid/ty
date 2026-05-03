@@ -1,4 +1,4 @@
--- AutoJoinMinigame LocalScript
+-- AutoJoinMinigame sssssss
 -- Watches MinigameJoinPrompt visibility and auto-clicks YesButton
 
 local Players = game:GetService("Players")
