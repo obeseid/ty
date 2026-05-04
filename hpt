@@ -31,9 +31,9 @@ local function onPromptVisible()
 	task.wait(30)
 
 	-- Your function goes here
-  Messages.FireServer("ReportLapTime", 10)
-  Messages.FireServer("ReportLapTime", 20)
-  Messages.FireServer("ReportWin", 30)
+  Messages.FireServer("ReportLapTime", 1)
+  Messages.FireServer("ReportLapTime", 1)
+  Messages.FireServer("ReportWin", 1)
 end
 
 -- Listen for visibility changes
